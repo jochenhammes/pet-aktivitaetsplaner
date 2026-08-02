@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Radiotracer-Dosierung · Tagesprogramm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF3F1;
+    --panel:#FFFFFF;
+    --panel-border:#D6E1DD;
+    --ink:#16262A;
+    --ink-soft:#516361;
+    --ink-faint:#8098959e;
+    --accent-hot:#B8461F;
+    --accent-hot-bright:#E58A52;
+    --accent-cool:#1E6E6A;
+    --accent-cool-tint:#DFEEEC;
+    --console-bg:#122228;
+    --console-ink:#EAF3F1;
+    --danger:#9A2F2F;
+    --radius:10px;
+    --font-sans:'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono:'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-sans);
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .page{
+    max-width:1180px;
+    margin:0 auto;
+    padding:32px 20px 56px;
+  }
+
+  .masthead{ margin-bottom:28px; max-width:760px; }
+
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--accent-cool);
+    margin:0 0 10px;
+    font-weight:600;
+  }
+
+  h1{
+    font-size:clamp(24px, 3vw, 32px);
+    font-weight:700;
+    margin:0 0 10px;
+    letter-spacing:-0.01em;
+  }
+
+  .subtitle{
+    color:var(--ink-soft);
+    font-size:15px;
+    margin:0;
+  }
+
+  .layout{
+    display:grid;
+    grid-template-columns:minmax(280px, 380px) 1fr;
+    gap:20px;
+    align-items:start;
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:var(--radius);
+    padding:22px;
+  }
+
+  .panel h2{
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    font-family:var(--font-mono);
+    font-weight:600;
+    color:var(--ink-soft);
+    margin:0 0 18px;
+  }
+
+  fieldset{
+    border:0;
+    padding:0;
+    margin:0 0 20px;
+  }
+
+  fieldset:last-of-type{ margin-bottom:0; }
+
+  legend{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.09em;
+    text-transform:uppercase;
+    color:var(--accent-cool);
+    padding:0 0 8px;
+    font-weight:600;
+  }
+
+  .field{ margin-bottom:14px; }
+  .field:last-child{ margin-bottom:0; }
+
+  .field-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+
+  label{
+    display:block;
+    font-size:13px;
+    font-weight:500;
+    color:var(--ink);
+    margin-bottom:5px;
+  }
+
+  .hint{
+    font-size:12px;
+    color:var(--ink-faint);
+    margin-top:4px;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="time"],
+  select{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--panel-border);
+    border-radius:7px;
+    font-family:var(--font-mono);
+    font-size:14px;
+    color:var(--ink);
+    background:#FCFDFD;
+  }
+
+  input:focus-visible, select:focus-visible{
+    outline:2px solid var(--accent-cool);
+    outline-offset:1px;
+  }
+
+  .unit-group{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:8px;
+  }
+
+  #customHalflifeWrap{ display:none; margin-top:10px; }
+  #customHalflifeWrap.active{ display:block; }
+
+  .warning{
+    display:none;
+    background:#FBEAE6;
+    border:1px solid #E6B7A8;
+    color:var(--danger);
+    font-size:13px;
+    padding:10px 12px;
+    border-radius:7px;
+    margin-bottom:16px;
+  }
+  .warning.active{ display:block; }
+
+  .readout{ display:flex; flex-direction:column; gap:20px; }
+
+  .stats{
+    background:var(--console-bg);
+    border-radius:var(--radius);
+    padding:20px;
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:16px;
+  }
+
+  .stat-label{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:#9FC2BE;
+    margin-bottom:6px;
+  }
+
+  .stat-value{
+    display:block;
+    font-family:var(--font-mono);
+    font-weight:600;
+    font-size:clamp(18px, 2.1vw, 24px);
+    color:var(--console-ink);
+    letter-spacing:-0.01em;
+  }
+
+  .stat-value.hot{ color:var(--accent-hot-bright); }
+
+  .chart-wrap{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:var(--radius);
+    padding:18px 18px 8px;
+  }
+
+  .chart-wrap h2{ margin-bottom:6px; }
+
+  #decayChart{ width:100%; height:auto; display:block; }
+
+  .chart-caption{
+    font-size:12px;
+    color:var(--ink-faint);
+    text-align:center;
+    margin:6px 0 4px;
+  }
+
+  .table-panel{ margin-top:20px; }
+
+  .table-scroll{ overflow-x:auto; }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13.5px;
+  }
+
+  thead th{
+    text-align:right;
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    font-weight:600;
+    padding:8px 12px;
+    border-bottom:2px solid var(--panel-border);
+    white-space:nowrap;
+  }
+  thead th:first-child, thead th:nth-child(2){ text-align:left; }
+
+  tbody td{
+    padding:7px 12px;
+    text-align:right;
+    font-family:var(--font-mono);
+    border-bottom:1px solid var(--panel-border);
+    white-space:nowrap;
+  }
+  tbody td:first-child, tbody td:nth-child(2){ text-align:left; }
+
+  tbody tr:nth-child(even){ background:var(--accent-cool-tint); }
+
+  .day-offset{
+    font-size:10px;
+    color:var(--accent-hot);
+    vertical-align:super;
+    margin-left:2px;
+  }
+
+  .disclaimer{
+    max-width:760px;
+    margin:26px auto 0;
+    font-size:12.5px;
+    color:var(--ink-faint);
+    border-top:1px solid var(--panel-border);
+    padding-top:16px;
+  }
+
+  @media (max-width: 900px){
+    .layout{ grid-template-columns:1fr; }
+    .stats{ grid-template-columns:1fr 1fr; }
+  }
+  @media (max-width: 520px){
+    .stats{ grid-template-columns:1fr; }
+    .field-row{ grid-template-columns:1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <p class="eyebrow">Nuklearmedizin · Dosiskalkulation</p>
+    <h1>Radiotracer-Bedarf für das Tagesprogramm</h1>
+    <p class="subtitle">Berechnet die zum Kalibrierzeitpunkt benötigte Gesamtaktivität für eine Serie von Patienteninjektionen – mit Restaktivität je Injektionszeitpunkt, Gesamtkosten und Ø Kosten pro Patient.</p>
+  </header>
+
+  <div class="warning" id="formWarning"></div>
+
+  <main class="layout">
+
+    <section class="panel controls" aria-label="Eingaben">
+      <h2>Steuerung</h2>
+
+      <fieldset>
+        <legend>Radionuklid</legend>
+        <div class="field">
+          <label for="nuclide">Nuklid</label>
+          <select id="nuclide"></select>
+        </div>
+        <div id="customHalflifeWrap">
+          <div class="field">
+            <label for="customHalflife">Halbwertszeit</label>
+            <div class="unit-group">
+              <input type="number" id="customHalflife" min="0.01" step="0.01" value="109.77" />
+              <select id="customHalflifeUnit">
+                <option value="min">Minuten</option>
+                <option value="h">Stunden</option>
+                <option value="d">Tage</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <p class="hint" id="halflifeHint"></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Zeitplan</legend>
+        <div class="field">
+          <label for="calTime">Kalibrierzeitpunkt (= 1. Injektion)</label>
+          <input type="time" id="calTime" value="08:00" />
+        </div>
+        <div class="field">
+          <label for="interval">Abstand der Injektionen (Minuten)</label>
+          <input type="number" id="interval" min="0" step="1" value="15" />
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Patientenprogramm</legend>
+        <div class="field">
+          <label for="patientCount">Anzahl Patienten</label>
+          <input type="number" id="patientCount" min="1" step="1" value="20" />
+        </div>
+        <div class="field">
+          <label for="dosePerPatient">Aktivität pro Patient (MBq)</label>
+          <input type="number" id="dosePerPatient" min="0.1" step="1" value="280" />
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Kosten</legend>
+        <div class="field">
+          <label for="costPerMbq">Kosten pro MBq zum Kalibrierzeitpunkt (€)</label>
+          <input type="number" id="costPerMbq" min="0" step="0.01" value="1.30" />
+        </div>
+      </fieldset>
+    </section>
+
+    <section class="readout">
+      <div class="stats" aria-label="Ergebnis-Übersicht">
+        <div class="stat">
+          <span class="stat-label">Gesamtaktivität bei Kalibrierung</span>
+          <span class="stat-value hot" id="statTotalActivity">–</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Gesamtkosten</span>
+          <span class="stat-value" id="statTotalCost">–</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Ø Kosten / Patient</span>
+          <span class="stat-value" id="statAvgCost">–</span>
+        </div>
+      </div>
+
+      <div class="chart-wrap panel" aria-label="Zerfallsdiagramm">
+        <h2>Bestandsaktivität im Tagesverlauf</h2>
+        <svg id="decayChart" viewBox="0 0 640 220" preserveAspectRatio="none"></svg>
+        <p class="chart-caption">Zerfall zwischen den Injektionen, stufenweise Entnahme je Patient. Letzter Wert = 0, da ohne Sicherheitsreserve kalkuliert.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <section class="panel table-panel" aria-label="Injektionsplan">
+    <h2>Injektionsplan</h2>
+    <div class="table-scroll">
+      <table id="scheduleTable">
+        <thead>
+          <tr>
+            <th>Nr.</th>
+            <th>Uhrzeit</th>
+            <th>Δ Kalibrierung</th>
+            <th>Dosis (MBq)</th>
+            <th>Restaktivität vor Injektion (MBq)</th>
+            <th>Restaktivität nach Injektion (MBq)</th>
+          </tr>
+        </thead>
+        <tbody id="scheduleBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="disclaimer">
+    Hinweis: Die Rechnung geht von exakter Einhaltung des Zeitplans aus und plant ohne Sicherheitsreserve – die Restaktivität nach dem letzten Patienten ist rechnerisch 0. Für Verzögerungen im Praxisablauf empfiehlt sich ein eigener Aufschlag auf die Gesamtaktivität. Die tatsächlich applizierte Aktivität ist unmittelbar vor Injektion zu messen und zu dokumentieren; diese App ersetzt keine Aktivitätsmessung. Halbwertszeiten sind gerundete Referenzwerte – bei Bedarf „Benutzerdefiniert" mit eigenem Wert verwenden.
+  </p>
+
+</div>
+
+<script>
+  // Halbwertszeiten in Minuten (gerundete Referenzwerte)
+  const NUCLIDES = [
+    { key:'F-18',  label:'F-18 (Fluor-18)',    halflife:109.77 },
+    { key:'Ga-68', label:'Ga-68 (Gallium-68)', halflife:67.71 },
+    { key:'C-11',  label:'C-11 (Kohlenstoff-11)', halflife:20.36 },
+    { key:'N-13',  label:'N-13 (Stickstoff-13)', halflife:9.97 },
+    { key:'O-15',  label:'O-15 (Sauerstoff-15)', halflife:2.04 },
+    { key:'Rb-82', label:'Rb-82 (Rubidium-82)', halflife:1.27 },
+    { key:'Cu-64', label:'Cu-64 (Kupfer-64)',   halflife:762.0 },
+    { key:'Zr-89', label:'Zr-89 (Zirkonium-89)', halflife:4704.6 },
+    { key:'Ga-67', label:'Ga-67 (Gallium-67)',  halflife:4696.9 },
+    { key:'Tc-99m',label:'Tc-99m (Technetium-99m)', halflife:360.4 },
+    { key:'I-123', label:'I-123 (Iod-123)',     halflife:796.2 },
+    { key:'I-131', label:'I-131 (Iod-131)',     halflife:11556.3 },
+    { key:'In-111',label:'In-111 (Indium-111)', halflife:4038.8 },
+    { key:'Lu-177',label:'Lu-177 (Lutetium-177)', halflife:9571.7 },
+    { key:'Y-90',  label:'Y-90 (Yttrium-90)',   halflife:3843.2 },
+    { key:'Ra-223',label:'Ra-223 (Radium-223)', halflife:16459.2 },
+    { key:'custom',label:'Benutzerdefiniert …', halflife:null }
+  ];
+
+  const el = id => document.getElementById(id);
+  const nuclideSelect = el('nuclide');
+  const customWrap = el('customHalflifeWrap');
+  const customHalflife = el('customHalflife');
+  const customHalflifeUnit = el('customHalflifeUnit');
+  const halflifeHint = el('halflifeHint');
+  const warningBox = el('formWarning');
+
+  NUCLIDES.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n.key;
+    opt.textContent = n.label;
+    nuclideSelect.appendChild(opt);
+  });
+  nuclideSelect.value = 'F-18';
+
+  const mbqFmt = new Intl.NumberFormat('de-DE', { minimumFractionDigits:1, maximumFractionDigits:1 });
+  const eurFmt = new Intl.NumberFormat('de-DE', { style:'currency', currency:'EUR' });
+
+  function getHalflifeMinutes(){
+    const sel = nuclideSelect.value;
+    const entry = NUCLIDES.find(n => n.key === sel);
+    if (sel === 'custom'){
+      let v = parseFloat(customHalflife.value);
+      if (!isFinite(v) || v <= 0) return null;
+      const unit = customHalflifeUnit.value;
+      if (unit === 'h') v *= 60;
+      if (unit === 'd') v *= 1440;
+      return v;
+    }
+    return entry ? entry.halflife : null;
+  }
+
+  function updateHalflifeHint(){
+    const sel = nuclideSelect.value;
+    customWrap.classList.toggle('active', sel === 'custom');
+    const hl = getHalflifeMinutes();
+    halflifeHint.textContent = hl ? `Halbwertszeit: ${mbqFmt.format(hl)} min` : '';
+  }
+
+  function parseTimeToMinutes(str){
+    const [h,m] = str.split(':').map(Number);
+    return h*60+m;
+  }
+
+  function formatMinutes(totalMin){
+    const dayOffset = Math.floor(totalMin/1440);
+    let mins = ((totalMin % 1440) + 1440) % 1440;
+    let h = Math.floor(mins/60);
+    let m = Math.round(mins - h*60);
+    if (m === 60){ m = 0; h += 1; if (h === 24) h = 0; }
+    const hh = String(h).padStart(2,'0');
+    const mm = String(m).padStart(2,'0');
+    return { label: `${hh}:${mm}`, dayOffset };
+  }
+
+  function showWarning(msg){
+    if (!msg){ warningBox.classList.remove('active'); warningBox.textContent=''; return; }
+    warningBox.textContent = msg;
+    warningBox.classList.add('active');
+  }
+
+  function buildDecayChart(times, remBefore, remAfter, maxY){
+    const svg = el('decayChart');
+    const W = 640, H = 220, padTop = 14, padBottom = 14, padLeft = 2, padRight = 2;
+    const plotH = H - padTop - padBottom;
+    const N = times.length;
+    const duration = N > 1 ? (times[N-1] - times[0]) : Math.max(times[0] ? 1 : 15, 15);
+    const plotW = W - padLeft - padRight;
+
+    const xScale = t => padLeft + ( (t - times[0]) / duration ) * plotW;
+    const yScale = v => padTop + plotH - (maxY > 0 ? (v/maxY) : 0) * plotH;
+
+    let d = '';
+    const lambda = window.__lambda;
+
+    for (let i = 0; i < N; i++){
+      const xBefore = xScale(times[i]);
+      if (i === 0){
+        d += `M ${xBefore.toFixed(2)} ${yScale(remBefore[i]).toFixed(2)} `;
+      } else {
+        d += `L ${xBefore.toFixed(2)} ${yScale(remBefore[i]).toFixed(2)} `;
+      }
+      // vertical drop (withdrawal)
+      d += `L ${xBefore.toFixed(2)} ${yScale(remAfter[i]).toFixed(2)} `;
+
+      // decay curve to next point
+      if (i < N-1){
+        const steps = 14;
+        const tSpan = times[i+1] - times[i];
+        for (let s = 1; s <= steps; s++){
+          const t = times[i] + (tSpan * s/steps);
+          const val = remAfter[i] * Math.exp(-lambda * (t - times[i]));
+          d += `L ${xScale(t).toFixed(2)} ${yScale(val).toFixed(2)} `;
+        }
+      }
+    }
+
+    const dropDots = times.map((t,i) => {
+      const x = xScale(t);
+      return `<circle cx="${x.toFixed(2)}" cy="${yScale(remBefore[i]).toFixed(2)}" r="2.6" fill="#B8461F" />`;
+    }).join('');
+
+    svg.innerHTML = `
+      <line x1="${padLeft}" y1="${(H-padBottom).toFixed(2)}" x2="${(W-padRight).toFixed(2)}" y2="${(H-padBottom).toFixed(2)}" stroke="#D6E1DD" stroke-width="1" />
+      <path d="${d}" fill="none" stroke="#1E6E6A" stroke-width="2.2" stroke-linejoin="round" />
+      ${dropDots}
+    `;
+  }
+
+  function calculate(){
+    const halflife = getHalflifeMinutes();
+    const calMinutes = parseTimeToMinutes(el('calTime').value || '08:00');
+    const interval = parseFloat(el('interval').value);
+    const N = parseInt(el('patientCount').value, 10);
+    const dose = parseFloat(el('dosePerPatient').value);
+    const costPerMbq = parseFloat(el('costPerMbq').value);
+
+    const problems = [];
+    if (!halflife || halflife <= 0) problems.push('Halbwertszeit muss größer als 0 sein.');
+    if (!isFinite(interval) || interval < 0) problems.push('Injektionsabstand muss ≥ 0 sein.');
+    if (!Number.isInteger(N) || N < 1) problems.push('Anzahl Patienten muss mindestens 1 sein.');
+    if (!isFinite(dose) || dose <= 0) problems.push('Aktivität pro Patient muss größer als 0 sein.');
+    if (!isFinite(costPerMbq) || costPerMbq < 0) problems.push('Kosten pro MBq dürfen nicht negativ sein.');
+
+    if (problems.length){
+      showWarning(problems.join(' '));
+      el('scheduleBody').innerHTML = '';
+      el('statTotalActivity').textContent = '–';
+      el('statTotalCost').textContent = '–';
+      el('statAvgCost').textContent = '–';
+      el('decayChart').innerHTML = '';
+      return;
+    }
+    showWarning(interval === 0 && N > 1 ? 'Hinweis: Abstand 0 min bedeutet gleichzeitige Injektion aller Patienten.' : '');
+
+    const lambda = Math.LN2 / halflife;
+    window.__lambda = lambda;
+
+    const remBefore = new Array(N);
+    const remAfter = new Array(N);
+    remBefore[N-1] = dose;
+    remAfter[N-1] = 0;
+    for (let i = N-2; i >= 0; i--){
+      remAfter[i] = remBefore[i+1] * Math.exp(lambda * interval);
+      remBefore[i] = remAfter[i] + dose;
+    }
+
+    const times = [];
+    for (let i = 0; i < N; i++) times.push(calMinutes + i*interval);
+
+    const totalActivity = remBefore[0];
+    const totalCost = totalActivity * costPerMbq;
+    const avgCost = totalCost / N;
+
+    el('statTotalActivity').textContent = `${mbqFmt.format(totalActivity)} MBq`;
+    el('statTotalCost').textContent = eurFmt.format(totalCost);
+    el('statAvgCost').textContent = eurFmt.format(avgCost);
+
+    const rows = [];
+    for (let i = 0; i < N; i++){
+      const t = formatMinutes(times[i]);
+      const deltaMin = Math.round(times[i] - calMinutes);
+      rows.push(`
+        <tr>
+          <td>${i+1}</td>
+          <td>${t.label}${t.dayOffset > 0 ? `<span class="day-offset">+${t.dayOffset}</span>` : ''}</td>
+          <td>${deltaMin >= 0 ? '+' : ''}${deltaMin} min</td>
+          <td>${mbqFmt.format(dose)}</td>
+          <td>${mbqFmt.format(remBefore[i])}</td>
+          <td>${mbqFmt.format(remAfter[i])}</td>
+        </tr>
+      `);
+    }
+    el('scheduleBody').innerHTML = rows.join('');
+
+    buildDecayChart(times, remBefore, remAfter, totalActivity);
+  }
+
+  nuclideSelect.addEventListener('change', () => { updateHalflifeHint(); calculate(); });
+  [customHalflife, customHalflifeUnit, el('calTime'), el('interval'), el('patientCount'), el('dosePerPatient'), el('costPerMbq')]
+    .forEach(input => input.addEventListener('input', () => { updateHalflifeHint(); calculate(); }));
+
+  updateHalflifeHint();
+  calculate();
+</script>
+</body>
+</html>
