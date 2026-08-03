@@ -20,6 +20,7 @@
     --accent-cool-tint:#DFEEEC;
     --console-bg:#122228;
     --console-ink:#EAF3F1;
+    --console-soft:#9FC2BE;
     --danger:#9A2F2F;
     --radius:10px;
     --font-sans:'IBM Plex Sans', system-ui, sans-serif;
@@ -113,12 +114,6 @@
   .field{ margin-bottom:14px; }
   .field:last-child{ margin-bottom:0; }
 
-  .field-row{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:10px;
-  }
-
   label{
     display:block;
     font-size:13px;
@@ -161,6 +156,26 @@
   #customHalflifeWrap{ display:none; margin-top:10px; }
   #customHalflifeWrap.active{ display:block; }
 
+  .checkbox-label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+    margin-bottom:0;
+  }
+  .checkbox-label input[type="checkbox"]{
+    width:16px;
+    height:16px;
+    accent-color:var(--accent-cool);
+    cursor:pointer;
+    flex:none;
+  }
+
+  #secondDeliveryFields{ display:none; margin-top:14px; padding-top:14px; border-top:1px dashed var(--panel-border); }
+  #secondDeliveryFields.active{ display:block; }
+
   .warning{
     display:none;
     background:#FBEAE6;
@@ -179,8 +194,11 @@
     background:var(--console-bg);
     border-radius:var(--radius);
     padding:20px;
+  }
+
+  .stats-grid{
     display:grid;
-    grid-template-columns:repeat(3, 1fr);
+    grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
     gap:16px;
   }
 
@@ -190,7 +208,7 @@
     font-size:11px;
     letter-spacing:0.08em;
     text-transform:uppercase;
-    color:#9FC2BE;
+    color:var(--console-soft);
     margin-bottom:6px;
   }
 
@@ -198,12 +216,23 @@
     display:block;
     font-family:var(--font-mono);
     font-weight:600;
-    font-size:clamp(18px, 2.1vw, 24px);
+    font-size:clamp(17px, 2vw, 23px);
     color:var(--console-ink);
     letter-spacing:-0.01em;
   }
 
   .stat-value.hot{ color:var(--accent-hot-bright); }
+
+  .stats-note{
+    margin-top:16px;
+    padding-top:14px;
+    border-top:1px solid #24393f;
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--console-soft);
+    line-height:1.7;
+  }
+  .stats-note strong{ color:var(--console-ink); font-weight:600; }
 
   .chart-wrap{
     background:var(--panel);
@@ -245,7 +274,7 @@
     border-bottom:2px solid var(--panel-border);
     white-space:nowrap;
   }
-  thead th:first-child, thead th:nth-child(2){ text-align:left; }
+  thead th.col-left{ text-align:left; }
 
   tbody td{
     padding:7px 12px;
@@ -254,9 +283,19 @@
     border-bottom:1px solid var(--panel-border);
     white-space:nowrap;
   }
-  tbody td:first-child, tbody td:nth-child(2){ text-align:left; }
+  tbody td.col-left{ text-align:left; }
 
   tbody tr:nth-child(even){ background:var(--accent-cool-tint); }
+
+  .badge{
+    display:inline-block;
+    font-size:11px;
+    font-weight:600;
+    padding:2px 7px;
+    border-radius:99px;
+  }
+  .badge-1{ background:var(--accent-cool-tint); color:var(--accent-cool); }
+  .badge-2{ background:#FBE7DB; color:var(--accent-hot); }
 
   .day-offset{
     font-size:10px;
@@ -276,13 +315,7 @@
 
   @media (max-width: 900px){
     .layout{ grid-template-columns:1fr; }
-    .stats{ grid-template-columns:1fr 1fr; }
   }
-  @media (max-width: 520px){
-    .stats{ grid-template-columns:1fr; }
-    .field-row{ grid-template-columns:1fr; }
-  }
-
   @media (prefers-reduced-motion: reduce){
     *{ transition:none !important; }
   }
@@ -294,7 +327,7 @@
   <header class="masthead">
     <p class="eyebrow">Nuklearmedizin · Dosiskalkulation</p>
     <h1>Radiotracer-Bedarf für das Tagesprogramm</h1>
-    <p class="subtitle">Berechnet die zum Kalibrierzeitpunkt benötigte Gesamtaktivität für eine Serie von Patienteninjektionen – mit Restaktivität je Injektionszeitpunkt, Gesamtkosten und Ø Kosten pro Patient.</p>
+    <p class="subtitle">Berechnet die zum Kalibrierzeitpunkt benötigte Gesamtaktivität für eine Serie von Patienteninjektionen – optional aufgeteilt auf zwei Lieferungen, mit Restaktivität je Injektionszeitpunkt, Gesamtkosten und Ø Kosten pro Patient.</p>
   </header>
 
   <div class="warning" id="formWarning"></div>
@@ -354,31 +387,50 @@
         <legend>Kosten</legend>
         <div class="field">
           <label for="costPerMbq">Kosten pro MBq zum Kalibrierzeitpunkt (€)</label>
-          <input type="number" id="costPerMbq" min="0" step="0.01" value="0.50" />
+          <input type="number" id="costPerMbq" min="0" step="0.01" value="1.30" />
+        </div>
+        <div class="field">
+          <label for="deliveryFee">Lieferkosten pro Lieferung (€)</label>
+          <input type="number" id="deliveryFee" min="0" step="0.01" value="120.00" />
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Zweite Lieferung</legend>
+        <div class="field">
+          <label class="checkbox-label" for="secondDeliveryEnabled">
+            <input type="checkbox" id="secondDeliveryEnabled" />
+            <span>Zweite Lieferung aktivieren</span>
+          </label>
+        </div>
+        <div id="secondDeliveryFields">
+          <div class="field">
+            <label for="maxFirstDelivery">Maximale Liefermenge 1. Lieferung (MBq)</label>
+            <input type="number" id="maxFirstDelivery" min="0.1" step="1" value="10000" />
+          </div>
+          <div class="field">
+            <label for="secondDeliveryTime">Uhrzeit 2. Lieferung</label>
+            <input type="time" id="secondDeliveryTime" value="12:00" />
+          </div>
+          <div class="field">
+            <label for="costPerMbq2">Kosten pro MBq zur 2. Lieferung (€)</label>
+            <input type="number" id="costPerMbq2" min="0" step="0.01" value="1.30" />
+          </div>
+          <p class="hint">Patienten werden der 1. Lieferung zugeteilt, bis entweder die maximale Liefermenge oder die Uhrzeit der 2. Lieferung erreicht ist – je nachdem, was zuerst eintritt. Der Rest wird aus der 2. Lieferung versorgt.</p>
         </div>
       </fieldset>
     </section>
 
     <section class="readout">
       <div class="stats" aria-label="Ergebnis-Übersicht">
-        <div class="stat">
-          <span class="stat-label">Gesamtaktivität bei Kalibrierung</span>
-          <span class="stat-value hot" id="statTotalActivity">–</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Gesamtkosten</span>
-          <span class="stat-value" id="statTotalCost">–</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Ø Kosten / Patient</span>
-          <span class="stat-value" id="statAvgCost">–</span>
-        </div>
+        <div class="stats-grid" id="statsGrid"></div>
+        <div class="stats-note" id="statsNote"></div>
       </div>
 
       <div class="chart-wrap panel" aria-label="Zerfallsdiagramm">
         <h2>Bestandsaktivität im Tagesverlauf</h2>
         <svg id="decayChart" viewBox="0 0 640 220" preserveAspectRatio="none"></svg>
-        <p class="chart-caption">Zerfall zwischen den Injektionen, stufenweise Entnahme je Patient. Letzter Wert = 0, da ohne Sicherheitsreserve kalkuliert.</p>
+        <p class="chart-caption" id="chartCaption">Zerfall zwischen den Injektionen, stufenweise Entnahme je Patient. Letzter Wert = 0, da ohne Sicherheitsreserve kalkuliert.</p>
       </div>
     </section>
 
@@ -388,23 +440,14 @@
     <h2>Injektionsplan</h2>
     <div class="table-scroll">
       <table id="scheduleTable">
-        <thead>
-          <tr>
-            <th>Nr.</th>
-            <th>Uhrzeit</th>
-            <th>Δ Kalibrierung</th>
-            <th>Dosis (MBq)</th>
-            <th>Restaktivität vor Injektion (MBq)</th>
-            <th>Restaktivität nach Injektion (MBq)</th>
-          </tr>
-        </thead>
+        <thead id="scheduleHead"></thead>
         <tbody id="scheduleBody"></tbody>
       </table>
     </div>
   </section>
 
   <p class="disclaimer">
-    Hinweis: Die Rechnung geht von exakter Einhaltung des Zeitplans aus und plant ohne Sicherheitsreserve – die Restaktivität nach dem letzten Patienten ist rechnerisch 0. Für Verzögerungen im Praxisablauf empfiehlt sich ein eigener Aufschlag auf die Gesamtaktivität. Die tatsächlich applizierte Aktivität ist unmittelbar vor Injektion zu messen und zu dokumentieren; diese App ersetzt keine Aktivitätsmessung. Halbwertszeiten sind gerundete Referenzwerte – bei Bedarf „Benutzerdefiniert" mit eigenem Wert verwenden.
+    Hinweis: Die Rechnung geht von exakter Einhaltung des Zeitplans aus und plant je Lieferung ohne Sicherheitsreserve – die Restaktivität nach dem jeweils letzten durch eine Lieferung versorgten Patienten ist rechnerisch 0. Für Verzögerungen im Praxisablauf empfiehlt sich ein eigener Aufschlag auf die Liefermengen. Die tatsächlich applizierte Aktivität ist unmittelbar vor Injektion zu messen und zu dokumentieren; diese App ersetzt keine Aktivitätsmessung. Halbwertszeiten sind gerundete Referenzwerte – bei Bedarf „Benutzerdefiniert" mit eigenem Wert verwenden.
   </p>
 
 </div>
@@ -438,6 +481,8 @@
   const customHalflifeUnit = el('customHalflifeUnit');
   const halflifeHint = el('halflifeHint');
   const warningBox = el('formWarning');
+  const secondDeliveryEnabled = el('secondDeliveryEnabled');
+  const secondDeliveryFields = el('secondDeliveryFields');
 
   NUCLIDES.forEach(n => {
     const opt = document.createElement('option');
@@ -493,52 +538,104 @@
     warningBox.classList.add('active');
   }
 
-  function buildDecayChart(times, remBefore, remAfter, maxY){
+  // Berechnet Restaktivität vor/nach jeder Injektion einer Lieferung sowie die
+  // am referenceTime benötigte Gesamtaktivität (nutzt Zerfalls-Superposition).
+  function computeBatch(referenceTime, patientTimes, dose, lambda){
+    const M = patientTimes.length;
+    if (M === 0) return { remBefore:[], remAfter:[], total:0 };
+    const remBefore = new Array(M), remAfter = new Array(M);
+    remBefore[M-1] = dose;
+    remAfter[M-1] = 0;
+    for (let j = M-2; j >= 0; j--){
+      const gap = patientTimes[j+1] - patientTimes[j];
+      remAfter[j] = remBefore[j+1] * Math.exp(lambda * gap);
+      remBefore[j] = remAfter[j] + dose;
+    }
+    const gap0 = patientTimes[0] - referenceTime;
+    const total = remBefore[0] * Math.exp(lambda * gap0);
+    return { remBefore, remAfter, total };
+  }
+
+  // Ermittelt, wie viele (der zeitlich vor der 2. Lieferung liegenden) Patienten
+  // die 1. Lieferung abdecken kann, bevor die maximale Liefermenge erreicht wird.
+  function findCapacitySplit(times, calMinutes, timeLimitIndex, dose, lambda, maxCapacity){
+    let runningSum = 0;
+    let idx = 0;
+    for (let i = 0; i < timeLimitIndex; i++){
+      const term = dose * Math.exp(lambda * (times[i]-calMinutes));
+      if (runningSum + term > maxCapacity) break;
+      runningSum += term;
+      idx = i+1;
+    }
+    return idx;
+  }
+
+  function buildDecayChart(batches){
     const svg = el('decayChart');
+    const active = batches.filter(b => b.times.length > 0);
+    if (active.length === 0){ svg.innerHTML=''; return; }
+
     const W = 640, H = 220, padTop = 14, padBottom = 14, padLeft = 2, padRight = 2;
     const plotH = H - padTop - padBottom;
-    const N = times.length;
-    const duration = N > 1 ? (times[N-1] - times[0]) : Math.max(times[0] ? 1 : 15, 15);
     const plotW = W - padLeft - padRight;
+    const xStart = active[0].times[0];
+    const xEnd = active[active.length-1].times[active[active.length-1].times.length-1];
+    const duration = Math.max(xEnd - xStart, 1);
+    const maxY = Math.max(...active.map(b => b.total));
 
-    const xScale = t => padLeft + ( (t - times[0]) / duration ) * plotW;
+    const xScale = t => padLeft + ((t - xStart)/duration) * plotW;
     const yScale = v => padTop + plotH - (maxY > 0 ? (v/maxY) : 0) * plotH;
 
-    let d = '';
-    const lambda = window.__lambda;
+    const points = [];
+    const dropDots = [];
+    const deliveryMarkers = [];
 
-    for (let i = 0; i < N; i++){
-      const xBefore = xScale(times[i]);
-      if (i === 0){
-        d += `M ${xBefore.toFixed(2)} ${yScale(remBefore[i]).toFixed(2)} `;
+    active.forEach((batch, bIdx) => {
+      const { referenceTime, times, remBefore, remAfter, total, lambda } = batch;
+      if (bIdx === 0){
+        points.push({ t: referenceTime, v: total });
       } else {
-        d += `L ${xBefore.toFixed(2)} ${yScale(remBefore[i]).toFixed(2)} `;
+        points.push({ t: referenceTime, v: 0 });
+        points.push({ t: referenceTime, v: total });
+        deliveryMarkers.push(referenceTime);
       }
-      // vertical drop (withdrawal)
-      d += `L ${xBefore.toFixed(2)} ${yScale(remAfter[i]).toFixed(2)} `;
-
-      // decay curve to next point
-      if (i < N-1){
-        const steps = 14;
-        const tSpan = times[i+1] - times[i];
-        for (let s = 1; s <= steps; s++){
-          const t = times[i] + (tSpan * s/steps);
-          const val = remAfter[i] * Math.exp(-lambda * (t - times[i]));
-          d += `L ${xScale(t).toFixed(2)} ${yScale(val).toFixed(2)} `;
+      let prevTime = referenceTime, prevVal = total;
+      const M = times.length;
+      for (let i = 0; i < M; i++){
+        const tSpan = times[i]-prevTime;
+        if (tSpan > 0){
+          const steps = 14;
+          for (let s = 1; s <= steps; s++){
+            const t = prevTime + tSpan*s/steps;
+            const val = prevVal * Math.exp(-lambda*(t-prevTime));
+            points.push({ t, v: val });
+          }
         }
+        points.push({ t: times[i], v: remBefore[i] });
+        dropDots.push({ t: times[i], v: remBefore[i] });
+        points.push({ t: times[i], v: remAfter[i] });
+        prevTime = times[i]; prevVal = remAfter[i];
       }
-    }
+    });
 
-    const dropDots = times.map((t,i) => {
-      const x = xScale(t);
-      return `<circle cx="${x.toFixed(2)}" cy="${yScale(remBefore[i]).toFixed(2)}" r="2.6" fill="#B8461F" />`;
+    const d = points.map((p, i) => `${i===0 ? 'M':'L'} ${xScale(p.t).toFixed(2)} ${yScale(p.v).toFixed(2)}`).join(' ');
+    const dots = dropDots.map(p => `<circle cx="${xScale(p.t).toFixed(2)}" cy="${yScale(p.v).toFixed(2)}" r="2.6" fill="#B8461F" />`).join('');
+    const markers = deliveryMarkers.map(t => {
+      const x = xScale(t).toFixed(2);
+      return `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${H-padBottom}" stroke="#B8461F" stroke-width="1.4" stroke-dasharray="4 3" />
+              <text x="${x}" y="${padTop-2}" font-size="9" font-family="IBM Plex Mono, monospace" fill="#B8461F" text-anchor="middle">2. Lieferung</text>`;
     }).join('');
 
     svg.innerHTML = `
       <line x1="${padLeft}" y1="${(H-padBottom).toFixed(2)}" x2="${(W-padRight).toFixed(2)}" y2="${(H-padBottom).toFixed(2)}" stroke="#D6E1DD" stroke-width="1" />
       <path d="${d}" fill="none" stroke="#1E6E6A" stroke-width="2.2" stroke-linejoin="round" />
-      ${dropDots}
+      ${dots}
+      ${markers}
     `;
+  }
+
+  function statTile(label, value, hot){
+    return `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value${hot?' hot':''}">${value}</span></div>`;
   }
 
   function calculate(){
@@ -547,71 +644,170 @@
     const interval = parseFloat(el('interval').value);
     const N = parseInt(el('patientCount').value, 10);
     const dose = parseFloat(el('dosePerPatient').value);
-    const costPerMbq = parseFloat(el('costPerMbq').value);
+    const costPerMbq1 = parseFloat(el('costPerMbq').value);
+    const deliveryFee = parseFloat(el('deliveryFee').value);
+    const twoDeliveries = secondDeliveryEnabled.checked;
+
+    let maxFirstDelivery, secondDeliveryTimeOfDay, costPerMbq2;
+    if (twoDeliveries){
+      maxFirstDelivery = parseFloat(el('maxFirstDelivery').value);
+      secondDeliveryTimeOfDay = parseTimeToMinutes(el('secondDeliveryTime').value || '12:00');
+      costPerMbq2 = parseFloat(el('costPerMbq2').value);
+    }
 
     const problems = [];
     if (!halflife || halflife <= 0) problems.push('Halbwertszeit muss größer als 0 sein.');
     if (!isFinite(interval) || interval < 0) problems.push('Injektionsabstand muss ≥ 0 sein.');
     if (!Number.isInteger(N) || N < 1) problems.push('Anzahl Patienten muss mindestens 1 sein.');
     if (!isFinite(dose) || dose <= 0) problems.push('Aktivität pro Patient muss größer als 0 sein.');
-    if (!isFinite(costPerMbq) || costPerMbq < 0) problems.push('Kosten pro MBq dürfen nicht negativ sein.');
+    if (!isFinite(costPerMbq1) || costPerMbq1 < 0) problems.push('Kosten pro MBq dürfen nicht negativ sein.');
+    if (!isFinite(deliveryFee) || deliveryFee < 0) problems.push('Lieferkosten dürfen nicht negativ sein.');
+    if (twoDeliveries){
+      if (!isFinite(maxFirstDelivery) || maxFirstDelivery <= 0) problems.push('Maximale Liefermenge muss größer als 0 sein.');
+      if (!isFinite(costPerMbq2) || costPerMbq2 < 0) problems.push('Kosten pro MBq (2. Lieferung) dürfen nicht negativ sein.');
+    }
 
     if (problems.length){
       showWarning(problems.join(' '));
+      el('scheduleHead').innerHTML = '';
       el('scheduleBody').innerHTML = '';
-      el('statTotalActivity').textContent = '–';
-      el('statTotalCost').textContent = '–';
-      el('statAvgCost').textContent = '–';
+      el('statsGrid').innerHTML = '';
+      el('statsNote').innerHTML = '';
       el('decayChart').innerHTML = '';
       return;
     }
-    showWarning(interval === 0 && N > 1 ? 'Hinweis: Abstand 0 min bedeutet gleichzeitige Injektion aller Patienten.' : '');
 
     const lambda = Math.LN2 / halflife;
-    window.__lambda = lambda;
-
-    const remBefore = new Array(N);
-    const remAfter = new Array(N);
-    remBefore[N-1] = dose;
-    remAfter[N-1] = 0;
-    for (let i = N-2; i >= 0; i--){
-      remAfter[i] = remBefore[i+1] * Math.exp(lambda * interval);
-      remBefore[i] = remAfter[i] + dose;
-    }
-
     const times = [];
     for (let i = 0; i < N; i++) times.push(calMinutes + i*interval);
 
-    const totalActivity = remBefore[0];
-    const totalCost = totalActivity * costPerMbq;
-    const avgCost = totalCost / N;
+    let infoMsgs = [];
+    if (interval === 0 && N > 1) infoMsgs.push('Hinweis: Abstand 0 min bedeutet gleichzeitige Injektion aller Patienten.');
 
-    el('statTotalActivity').textContent = `${mbqFmt.format(totalActivity)} MBq`;
-    el('statTotalCost').textContent = eurFmt.format(totalCost);
-    el('statAvgCost').textContent = eurFmt.format(avgCost);
+    let scheduleRows; // { idx, time, delivery(1|2) }
+    let statsHtml = '';
+    let noteHtml = '';
+    let batchesForChart;
 
-    const rows = [];
-    for (let i = 0; i < N; i++){
-      const t = formatMinutes(times[i]);
-      const deltaMin = Math.round(times[i] - calMinutes);
-      rows.push(`
+    if (!twoDeliveries){
+      const batch = computeBatch(calMinutes, times, dose, lambda);
+      const totalCost = batch.total*costPerMbq1 + deliveryFee;
+      const avgCost = totalCost / N;
+
+      statsHtml = [
+        statTile('Gesamtaktivität bei Kalibrierung', `${mbqFmt.format(batch.total)} MBq`, true),
+        statTile('Gesamtkosten (inkl. Lieferkosten)', eurFmt.format(totalCost)),
+        statTile('Ø Kosten / Patient', eurFmt.format(avgCost))
+      ].join('');
+
+      scheduleRows = times.map((t,i) => ({ idx:i, time:t, delivery:1, remBefore:batch.remBefore[i], remAfter:batch.remAfter[i] }));
+      batchesForChart = [{ referenceTime: calMinutes, times, remBefore: batch.remBefore, remAfter: batch.remAfter, total: batch.total, lambda }];
+
+    } else {
+      const secondDeliveryAbsolute = secondDeliveryTimeOfDay >= calMinutes ? secondDeliveryTimeOfDay : secondDeliveryTimeOfDay + 1440;
+      let timeLimitIndex = times.findIndex(t => t >= secondDeliveryAbsolute);
+      if (timeLimitIndex === -1) timeLimitIndex = N;
+
+      if (timeLimitIndex === 0){
+        infoMsgs.push('Die Uhrzeit der 2. Lieferung liegt vor der ersten Injektion – alle Patienten werden der 2. Lieferung zugeordnet.');
+      }
+
+      const capacityLimitIndex = findCapacitySplit(times, calMinutes, timeLimitIndex, dose, lambda, maxFirstDelivery);
+      const splitIndex = capacityLimitIndex;
+
+      if (splitIndex === 0 && timeLimitIndex > 0){
+        infoMsgs.push(`Die maximale Liefermenge der 1. Lieferung reicht nicht einmal für den ersten Patienten (mind. ${mbqFmt.format(dose)} MBq nötig).`);
+      }
+
+      const limitReason = (splitIndex < timeLimitIndex) ? 'maximale Liefermenge' : 'Uhrzeit der 2. Lieferung';
+
+      const batch1Times = times.slice(0, splitIndex);
+      const batch2Times = times.slice(splitIndex);
+      const batch1 = computeBatch(calMinutes, batch1Times, dose, lambda);
+      const batch2 = computeBatch(secondDeliveryAbsolute, batch2Times, dose, lambda);
+
+      const secondDeliveryUsed = batch2Times.length > 0;
+      if (!secondDeliveryUsed){
+        infoMsgs.push('Alle Patienten werden bereits durch die 1. Lieferung abgedeckt – die 2. Lieferung wird nicht benötigt.');
+      }
+
+      const cost1 = batch1.total*costPerMbq1;
+      const cost2 = batch2.total*costPerMbq2;
+      const fees = deliveryFee * (secondDeliveryUsed ? 2 : 1);
+      const totalCost = cost1 + cost2 + fees;
+      const avgCost = totalCost / N;
+
+      const tiles = [
+        statTile(`Lieferung 1 · Aktivität (${batch1Times.length} Pat.)`, `${mbqFmt.format(batch1.total)} MBq`, true)
+      ];
+      if (secondDeliveryUsed){
+        tiles.push(statTile(`Lieferung 2 · Aktivität (${batch2Times.length} Pat.)`, `${mbqFmt.format(batch2.total)} MBq`, true));
+      }
+      tiles.push(statTile('Gesamtkosten (inkl. Lieferkosten)', eurFmt.format(totalCost)));
+      tiles.push(statTile('Ø Kosten / Patient (beide Lieferungen)', eurFmt.format(avgCost)));
+      statsHtml = tiles.join('');
+
+      let noteLines = [];
+      if (secondDeliveryUsed){
+        noteLines.push(`Lieferung 1 deckt Patient 1–${splitIndex} ab, begrenzt durch: <strong>${limitReason}</strong>.`);
+        noteLines.push(`Lieferung 2 deckt Patient ${splitIndex+1}–${N} ab.`);
+        const single = computeBatch(calMinutes, times, dose, lambda);
+        const singleCost = single.total*costPerMbq1 + deliveryFee;
+        const diff = singleCost - totalCost;
+        const diffLabel = diff >= 0 ? 'Ersparnis' : 'Mehrkosten';
+        noteLines.push(`${diffLabel} ggü. einer einzigen Lieferung (${mbqFmt.format(single.total)} MBq, ${eurFmt.format(singleCost)}): <strong>${eurFmt.format(Math.abs(diff))}</strong>.`);
+      } else {
+        noteLines.push('Lieferung 1 deckt das gesamte Tagesprogramm ab.');
+      }
+      noteHtml = noteLines.join('<br>');
+
+      scheduleRows = [
+        ...batch1Times.map((t,i) => ({ idx:i, time:t, delivery:1, remBefore:batch1.remBefore[i], remAfter:batch1.remAfter[i] })),
+        ...batch2Times.map((t,i) => ({ idx:splitIndex+i, time:t, delivery:2, remBefore:batch2.remBefore[i], remAfter:batch2.remAfter[i] }))
+      ];
+
+      batchesForChart = [
+        { referenceTime: calMinutes, times: batch1Times, remBefore: batch1.remBefore, remAfter: batch1.remAfter, total: batch1.total, lambda },
+        { referenceTime: secondDeliveryAbsolute, times: batch2Times, remBefore: batch2.remBefore, remAfter: batch2.remAfter, total: batch2.total, lambda }
+      ];
+    }
+
+    showWarning(infoMsgs.join(' '));
+    el('statsGrid').innerHTML = statsHtml;
+    el('statsNote').innerHTML = noteHtml;
+
+    const headCols = ['Nr.','Uhrzeit','Δ Kalibrierung','Dosis (MBq)','Restaktivität vor Injektion (MBq)','Restaktivität nach Injektion (MBq)'];
+    if (twoDeliveries) headCols.splice(2, 0, 'Lieferung');
+    el('scheduleHead').innerHTML = `<tr>${headCols.map((c,i)=>`<th class="${i<=1 || (twoDeliveries && i===2)?'col-left':''}">${c}</th>`).join('')}</tr>`;
+
+    const rows = scheduleRows.map(r => {
+      const t = formatMinutes(r.time);
+      const deltaMin = Math.round(r.time - calMinutes);
+      const deliveryCell = twoDeliveries ? `<td class="col-left"><span class="badge badge-${r.delivery}">${r.delivery}</span></td>` : '';
+      return `
         <tr>
-          <td>${i+1}</td>
-          <td>${t.label}${t.dayOffset > 0 ? `<span class="day-offset">+${t.dayOffset}</span>` : ''}</td>
+          <td class="col-left">${r.idx+1}</td>
+          <td class="col-left">${t.label}${t.dayOffset > 0 ? `<span class="day-offset">+${t.dayOffset}</span>` : ''}</td>
+          ${deliveryCell}
           <td>${deltaMin >= 0 ? '+' : ''}${deltaMin} min</td>
           <td>${mbqFmt.format(dose)}</td>
-          <td>${mbqFmt.format(remBefore[i])}</td>
-          <td>${mbqFmt.format(remAfter[i])}</td>
+          <td>${mbqFmt.format(r.remBefore)}</td>
+          <td>${mbqFmt.format(r.remAfter)}</td>
         </tr>
-      `);
-    }
+      `;
+    });
     el('scheduleBody').innerHTML = rows.join('');
 
-    buildDecayChart(times, remBefore, remAfter, totalActivity);
+    buildDecayChart(batchesForChart);
   }
 
+  secondDeliveryEnabled.addEventListener('change', () => {
+    secondDeliveryFields.classList.toggle('active', secondDeliveryEnabled.checked);
+    calculate();
+  });
   nuclideSelect.addEventListener('change', () => { updateHalflifeHint(); calculate(); });
-  [customHalflife, customHalflifeUnit, el('calTime'), el('interval'), el('patientCount'), el('dosePerPatient'), el('costPerMbq')]
+  [customHalflife, customHalflifeUnit, el('calTime'), el('interval'), el('patientCount'), el('dosePerPatient'),
+   el('costPerMbq'), el('deliveryFee'), el('maxFirstDelivery'), el('secondDeliveryTime'), el('costPerMbq2')]
     .forEach(input => input.addEventListener('input', () => { updateHalflifeHint(); calculate(); }));
 
   updateHalflifeHint();
