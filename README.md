@@ -23,7 +23,7 @@ Ausgehend von der für jeden Patienten benötigten Aktivität zum Injektionszeit
 
 ## Hinweis
 
-Die Berechnung geht von exakter Einhaltung des Zeitplans aus und plant ohne Sicherheitsreserve (Restaktivität nach dem letzten Patienten = 0). Für Verzögerungen im Praxisablauf empfiehlt sich ein eigener Aufschlag. Hinterlegte Halbwertszeiten sind gerundete Referenzwerte. Die App ersetzt keine Aktivitätsmessung vor Injektion – die tatsächlich applizierte Aktivität ist stets unmittelbar vor Injektion zu messen und zu dokumentieren.
+Die Berechnung geht von exakter Einhaltung des Zeitplans aus und plant eine Sicherheitsreserve mit einer Restaktivität nach dem letzten Patienten von 100 MBq. Hinterlegte Halbwertszeiten sind gerundete Referenzwerte. Die App ersetzt keine Aktivitätsmessung vor Injektion – die tatsächlich applizierte Aktivität ist stets unmittelbar vor Injektion zu messen und zu dokumentieren.
 
 ## Lokale Nutzung
 
