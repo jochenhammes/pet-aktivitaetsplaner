@@ -296,6 +296,7 @@
   }
   .badge-1{ background:var(--accent-cool-tint); color:var(--accent-cool); }
   .badge-2{ background:#FBE7DB; color:var(--accent-hot); }
+  .badge-gap{ background:var(--danger); color:#fff; }
 
   .day-offset{
     font-size:10px;
@@ -362,8 +363,12 @@
       <fieldset>
         <legend>Zeitplan</legend>
         <div class="field">
-          <label for="calTime">Kalibrierzeitpunkt (= 1. Injektion)</label>
+          <label for="calTime">Kalibrierzeitpunkt (1. Lieferung)</label>
           <input type="time" id="calTime" value="08:00" />
+        </div>
+        <div class="field">
+          <label for="leadTime">Zeit zwischen Lieferung und 1. Injektion (Minuten)</label>
+          <input type="number" id="leadTime" min="0" step="1" value="10" />
         </div>
         <div class="field">
           <label for="interval">Abstand der Injektionen (Minuten)</label>
@@ -380,6 +385,10 @@
         <div class="field">
           <label for="dosePerPatient">Aktivität pro Patient (MBq)</label>
           <input type="number" id="dosePerPatient" min="0.1" step="1" value="280" />
+        </div>
+        <div class="field">
+          <label for="safetyBuffer">Sicherheitspuffer nach dem letzten Patienten (MBq)</label>
+          <input type="number" id="safetyBuffer" min="0" step="1" value="100" />
         </div>
       </fieldset>
 
@@ -410,13 +419,13 @@
           </div>
           <div class="field">
             <label for="secondDeliveryTime">Uhrzeit 2. Lieferung</label>
-            <input type="time" id="secondDeliveryTime" value="10:00" />
+            <input type="time" id="secondDeliveryTime" value="12:00" />
           </div>
           <div class="field">
             <label for="costPerMbq2">Kosten pro MBq zur 2. Lieferung (€)</label>
             <input type="number" id="costPerMbq2" min="0" step="0.01" value="0.37" />
           </div>
-          <p class="hint">Patienten werden der 1. Lieferung zugeteilt, bis entweder die maximale Liefermenge oder die Uhrzeit der 2. Lieferung erreicht ist – je nachdem, was zuerst eintritt. Der Rest wird aus der 2. Lieferung versorgt.</p>
+          <p class="hint">Patienten werden der 1. Lieferung zugeteilt, bis entweder die maximale Liefermenge oder die (um die Vorlaufzeit verschobene) Einsatzbereitschaft der 2. Lieferung erreicht ist – je nachdem, was zuerst eintritt. Der Rest wird aus der 2. Lieferung versorgt.</p>
         </div>
       </fieldset>
     </section>
@@ -430,7 +439,7 @@
       <div class="chart-wrap panel" aria-label="Zerfallsdiagramm">
         <h2>Bestandsaktivität im Tagesverlauf</h2>
         <svg id="decayChart" viewBox="0 0 640 220" preserveAspectRatio="none"></svg>
-        <p class="chart-caption" id="chartCaption">Zerfall zwischen den Injektionen, stufenweise Entnahme je Patient. Letzter Wert = 0, da ohne Sicherheitsreserve kalkuliert.</p>
+        <p class="chart-caption" id="chartCaption">Zerfall zwischen den Injektionen, stufenweise Entnahme je Patient. Nach dem letzten Patienten jeder Lieferung verbleibt der gewählte Sicherheitspuffer, der bis zur nächsten Lieferung weiter zerfällt.</p>
       </div>
     </section>
 
@@ -447,7 +456,7 @@
   </section>
 
   <p class="disclaimer">
-    Hinweis: Die Rechnung geht von exakter Einhaltung des Zeitplans aus und plant je Lieferung ohne Sicherheitsreserve – die Restaktivität nach dem jeweils letzten durch eine Lieferung versorgten Patienten ist rechnerisch 0. Für Verzögerungen im Praxisablauf empfiehlt sich ein eigener Aufschlag auf die Liefermengen. Die tatsächlich applizierte Aktivität ist unmittelbar vor Injektion zu messen und zu dokumentieren; diese App ersetzt keine Aktivitätsmessung. Halbwertszeiten sind gerundete Referenzwerte – bei Bedarf „Benutzerdefiniert" mit eigenem Wert verwenden.
+    Hinweis: Die Rechnung geht von exakter Einhaltung des Zeitplans aus. Nach dem jeweils letzten durch eine Lieferung versorgten Patienten verbleibt genau der eingestellte Sicherheitspuffer – bei 0 MBq Puffer entspricht das der knappsten Kalkulation ohne Reserve. Die tatsächlich applizierte Aktivität ist unmittelbar vor Injektion zu messen und zu dokumentieren; diese App ersetzt keine Aktivitätsmessung. Halbwertszeiten sind gerundete Referenzwerte – bei Bedarf „Benutzerdefiniert" mit eigenem Wert verwenden.
   </p>
 
 </div>
@@ -540,12 +549,13 @@
 
   // Berechnet Restaktivität vor/nach jeder Injektion einer Lieferung sowie die
   // am referenceTime benötigte Gesamtaktivität (nutzt Zerfalls-Superposition).
-  function computeBatch(referenceTime, patientTimes, dose, lambda){
+  // Nach dem letzten Patienten der Lieferung bleibt der Sicherheitspuffer "buffer" übrig.
+  function computeBatch(referenceTime, patientTimes, dose, lambda, buffer){
     const M = patientTimes.length;
     if (M === 0) return { remBefore:[], remAfter:[], total:0 };
     const remBefore = new Array(M), remAfter = new Array(M);
-    remBefore[M-1] = dose;
-    remAfter[M-1] = 0;
+    remAfter[M-1] = buffer;
+    remBefore[M-1] = dose + buffer;
     for (let j = M-2; j >= 0; j--){
       const gap = patientTimes[j+1] - patientTimes[j];
       remAfter[j] = remBefore[j+1] * Math.exp(lambda * gap);
@@ -558,13 +568,15 @@
 
   // Ermittelt, wie viele (der zeitlich vor der 2. Lieferung liegenden) Patienten
   // die 1. Lieferung abdecken kann, bevor die maximale Liefermenge erreicht wird.
-  function findCapacitySplit(times, calMinutes, timeLimitIndex, dose, lambda, maxCapacity){
-    let runningSum = 0;
+  // Der Sicherheitspuffer wird dabei auf den jeweils letzten getesteten Patienten bezogen.
+  function findCapacitySplit(times, calMinutes, timeLimitIndex, dose, lambda, maxCapacity, buffer){
+    let runningDoseSum = 0;
     let idx = 0;
     for (let i = 0; i < timeLimitIndex; i++){
-      const term = dose * Math.exp(lambda * (times[i]-calMinutes));
-      if (runningSum + term > maxCapacity) break;
-      runningSum += term;
+      const doseTerm = dose * Math.exp(lambda * (times[i]-calMinutes));
+      const bufferTerm = buffer * Math.exp(lambda * (times[i]-calMinutes));
+      if (runningDoseSum + doseTerm + bufferTerm > maxCapacity) break;
+      runningDoseSum += doseTerm;
       idx = i+1;
     }
     return idx;
@@ -589,13 +601,24 @@
     const points = [];
     const dropDots = [];
     const deliveryMarkers = [];
+    let prevBatchEnd = null;
 
     active.forEach((batch, bIdx) => {
       const { referenceTime, times, remBefore, remAfter, total, lambda } = batch;
       if (bIdx === 0){
         points.push({ t: referenceTime, v: total });
       } else {
-        points.push({ t: referenceTime, v: 0 });
+        if (prevBatchEnd){
+          const tSpan = referenceTime - prevBatchEnd.t;
+          if (tSpan > 0){
+            const steps = 14;
+            for (let s = 1; s <= steps; s++){
+              const t = prevBatchEnd.t + tSpan*s/steps;
+              const val = prevBatchEnd.v * Math.exp(-lambda*(t-prevBatchEnd.t));
+              points.push({ t, v: val });
+            }
+          }
+        }
         points.push({ t: referenceTime, v: total });
         deliveryMarkers.push(referenceTime);
       }
@@ -616,6 +639,7 @@
         points.push({ t: times[i], v: remAfter[i] });
         prevTime = times[i]; prevVal = remAfter[i];
       }
+      prevBatchEnd = { t: prevTime, v: prevVal };
     });
 
     const d = points.map((p, i) => `${i===0 ? 'M':'L'} ${xScale(p.t).toFixed(2)} ${yScale(p.v).toFixed(2)}`).join(' ');
@@ -644,6 +668,8 @@
     const interval = parseFloat(el('interval').value);
     const N = parseInt(el('patientCount').value, 10);
     const dose = parseFloat(el('dosePerPatient').value);
+    const safetyBuffer = parseFloat(el('safetyBuffer').value);
+    const leadTime = parseFloat(el('leadTime').value);
     const costPerMbq1 = parseFloat(el('costPerMbq').value);
     const deliveryFee = parseFloat(el('deliveryFee').value);
     const twoDeliveries = secondDeliveryEnabled.checked;
@@ -658,8 +684,10 @@
     const problems = [];
     if (!halflife || halflife <= 0) problems.push('Halbwertszeit muss größer als 0 sein.');
     if (!isFinite(interval) || interval < 0) problems.push('Injektionsabstand muss ≥ 0 sein.');
+    if (!isFinite(leadTime) || leadTime < 0) problems.push('Zeit zwischen Lieferung und 1. Injektion muss ≥ 0 sein.');
     if (!Number.isInteger(N) || N < 1) problems.push('Anzahl Patienten muss mindestens 1 sein.');
     if (!isFinite(dose) || dose <= 0) problems.push('Aktivität pro Patient muss größer als 0 sein.');
+    if (!isFinite(safetyBuffer) || safetyBuffer < 0) problems.push('Sicherheitspuffer darf nicht negativ sein.');
     if (!isFinite(costPerMbq1) || costPerMbq1 < 0) problems.push('Kosten pro MBq dürfen nicht negativ sein.');
     if (!isFinite(deliveryFee) || deliveryFee < 0) problems.push('Lieferkosten dürfen nicht negativ sein.');
     if (twoDeliveries){
@@ -679,7 +707,7 @@
 
     const lambda = Math.LN2 / halflife;
     const times = [];
-    for (let i = 0; i < N; i++) times.push(calMinutes + i*interval);
+    for (let i = 0; i < N; i++) times.push(calMinutes + leadTime + i*interval);
 
     let infoMsgs = [];
     if (interval === 0 && N > 1) infoMsgs.push('Hinweis: Abstand 0 min bedeutet gleichzeitige Injektion aller Patienten.');
@@ -690,7 +718,7 @@
     let batchesForChart;
 
     if (!twoDeliveries){
-      const batch = computeBatch(calMinutes, times, dose, lambda);
+      const batch = computeBatch(calMinutes, times, dose, lambda, safetyBuffer);
       const totalCost = batch.total*costPerMbq1 + deliveryFee;
       const avgCost = totalCost / N;
 
@@ -705,30 +733,40 @@
 
     } else {
       const secondDeliveryAbsolute = secondDeliveryTimeOfDay >= calMinutes ? secondDeliveryTimeOfDay : secondDeliveryTimeOfDay + 1440;
-      let timeLimitIndex = times.findIndex(t => t >= secondDeliveryAbsolute);
+      const secondDeliveryReady = secondDeliveryAbsolute + leadTime; // 2. Lieferung ist erst nach der Vorlaufzeit einsatzbereit
+      let timeLimitIndex = times.findIndex(t => t >= secondDeliveryReady);
       if (timeLimitIndex === -1) timeLimitIndex = N;
 
       if (timeLimitIndex === 0){
-        infoMsgs.push('Die Uhrzeit der 2. Lieferung liegt vor der ersten Injektion – alle Patienten werden der 2. Lieferung zugeordnet.');
+        infoMsgs.push('Die 2. Lieferung ist (inkl. Vorlaufzeit) bereits vor der ersten Injektion einsatzbereit – alle Patienten werden der 2. Lieferung zugeordnet.');
       }
 
-      const capacityLimitIndex = findCapacitySplit(times, calMinutes, timeLimitIndex, dose, lambda, maxFirstDelivery);
-      const splitIndex = capacityLimitIndex;
+      const capacityLimitIndex = findCapacitySplit(times, calMinutes, timeLimitIndex, dose, lambda, maxFirstDelivery, safetyBuffer);
 
-      if (splitIndex === 0 && timeLimitIndex > 0){
-        infoMsgs.push(`Die maximale Liefermenge der 1. Lieferung reicht nicht einmal für den ersten Patienten (mind. ${mbqFmt.format(dose)} MBq nötig).`);
+      if (capacityLimitIndex === 0 && timeLimitIndex > 0){
+        infoMsgs.push(`Die maximale Liefermenge der 1. Lieferung reicht nicht einmal für den ersten Patienten inkl. Sicherheitspuffer (mind. ${mbqFmt.format(dose+safetyBuffer)} MBq nötig).`);
       }
 
-      const limitReason = (splitIndex < timeLimitIndex) ? 'maximale Liefermenge' : 'Uhrzeit der 2. Lieferung';
+      // Patienten zwischen "1. Lieferung kapazitätsbedingt erschöpft" und "2. Lieferung einsatzbereit"
+      // können durch keine der beiden Lieferungen versorgt werden (echte Versorgungslücke).
+      const gapCount = timeLimitIndex - capacityLimitIndex;
+      const limitReason = gapCount > 0 ? 'maximale Liefermenge' : 'Uhrzeit der 2. Lieferung';
 
-      const batch1Times = times.slice(0, splitIndex);
-      const batch2Times = times.slice(splitIndex);
-      const batch1 = computeBatch(calMinutes, batch1Times, dose, lambda);
-      const batch2 = computeBatch(secondDeliveryAbsolute, batch2Times, dose, lambda);
+      const batch1Times = times.slice(0, capacityLimitIndex);
+      const gapTimes = times.slice(capacityLimitIndex, timeLimitIndex);
+      const batch2Times = times.slice(timeLimitIndex);
+      const batch1 = computeBatch(calMinutes, batch1Times, dose, lambda, safetyBuffer);
+      const batch2 = computeBatch(secondDeliveryAbsolute, batch2Times, dose, lambda, safetyBuffer);
 
       const secondDeliveryUsed = batch2Times.length > 0;
-      if (!secondDeliveryUsed){
+      if (!secondDeliveryUsed && gapCount === 0){
         infoMsgs.push('Alle Patienten werden bereits durch die 1. Lieferung abgedeckt – die 2. Lieferung wird nicht benötigt.');
+      }
+      if (gapCount > 0){
+        const gapFrom = formatMinutes(gapTimes[0]).label;
+        const gapTo = formatMinutes(gapTimes[gapTimes.length-1]).label;
+        const readyLabel = formatMinutes(secondDeliveryReady).label;
+        infoMsgs.push(`Versorgungslücke: ${gapCount} Patient(en) zwischen ${gapFrom} und ${gapTo} Uhr können weder durch Lieferung 1 (Kapazität erschöpft) noch durch Lieferung 2 (erst ab ${readyLabel} Uhr einsatzbereit) versorgt werden. Maximale Liefermenge erhöhen oder 2. Lieferung früher ansetzen.`);
       }
 
       const cost1 = batch1.total*costPerMbq1;
@@ -749,9 +787,10 @@
 
       let noteLines = [];
       if (secondDeliveryUsed){
-        noteLines.push(`Lieferung 1 deckt Patient 1–${splitIndex} ab, begrenzt durch: <strong>${limitReason}</strong>.`);
-        noteLines.push(`Lieferung 2 deckt Patient ${splitIndex+1}–${N} ab.`);
-        const single = computeBatch(calMinutes, times, dose, lambda);
+        noteLines.push(`Lieferung 1 deckt Patient 1–${capacityLimitIndex} ab, begrenzt durch: <strong>${limitReason}</strong>.`);
+        if (gapCount > 0) noteLines.push(`<span style="color:#E58A52">Versorgungslücke: Patient ${capacityLimitIndex+1}–${timeLimitIndex}.</span>`);
+        noteLines.push(`Lieferung 2 deckt Patient ${timeLimitIndex+1}–${N} ab.`);
+        const single = computeBatch(calMinutes, times, dose, lambda, safetyBuffer);
         const singleCost = single.total*costPerMbq1 + deliveryFee;
         const diff = singleCost - totalCost;
         const diffLabel = diff >= 0 ? 'Ersparnis' : 'Mehrkosten';
@@ -763,7 +802,8 @@
 
       scheduleRows = [
         ...batch1Times.map((t,i) => ({ idx:i, time:t, delivery:1, remBefore:batch1.remBefore[i], remAfter:batch1.remAfter[i] })),
-        ...batch2Times.map((t,i) => ({ idx:splitIndex+i, time:t, delivery:2, remBefore:batch2.remBefore[i], remAfter:batch2.remAfter[i] }))
+        ...gapTimes.map((t,i) => ({ idx:capacityLimitIndex+i, time:t, delivery:0, remBefore:null, remAfter:null })),
+        ...batch2Times.map((t,i) => ({ idx:timeLimitIndex+i, time:t, delivery:2, remBefore:batch2.remBefore[i], remAfter:batch2.remAfter[i] }))
       ];
 
       batchesForChart = [
@@ -783,16 +823,19 @@
     const rows = scheduleRows.map(r => {
       const t = formatMinutes(r.time);
       const deltaMin = Math.round(r.time - calMinutes);
-      const deliveryCell = twoDeliveries ? `<td class="col-left"><span class="badge badge-${r.delivery}">${r.delivery}</span></td>` : '';
+      const badgeLabel = r.delivery === 0 ? '!' : r.delivery;
+      const deliveryCell = twoDeliveries ? `<td class="col-left"><span class="badge badge-${r.delivery === 0 ? 'gap' : r.delivery}" title="${r.delivery === 0 ? 'Versorgungslücke – keine Lieferung verfügbar' : ''}">${badgeLabel}</span></td>` : '';
+      const remBeforeCell = r.remBefore === null ? '–' : mbqFmt.format(r.remBefore);
+      const remAfterCell = r.remAfter === null ? '–' : mbqFmt.format(r.remAfter);
       return `
-        <tr>
+        <tr${r.delivery === 0 ? ' style="background:#FBEAE6"' : ''}>
           <td class="col-left">${r.idx+1}</td>
           <td class="col-left">${t.label}${t.dayOffset > 0 ? `<span class="day-offset">+${t.dayOffset}</span>` : ''}</td>
           ${deliveryCell}
           <td>${deltaMin >= 0 ? '+' : ''}${deltaMin} min</td>
           <td>${mbqFmt.format(dose)}</td>
-          <td>${mbqFmt.format(r.remBefore)}</td>
-          <td>${mbqFmt.format(r.remAfter)}</td>
+          <td>${remBeforeCell}</td>
+          <td>${remAfterCell}</td>
         </tr>
       `;
     });
@@ -806,7 +849,7 @@
     calculate();
   });
   nuclideSelect.addEventListener('change', () => { updateHalflifeHint(); calculate(); });
-  [customHalflife, customHalflifeUnit, el('calTime'), el('interval'), el('patientCount'), el('dosePerPatient'),
+  [customHalflife, customHalflifeUnit, el('calTime'), el('leadTime'), el('interval'), el('patientCount'), el('dosePerPatient'), el('safetyBuffer'),
    el('costPerMbq'), el('deliveryFee'), el('maxFirstDelivery'), el('secondDeliveryTime'), el('costPerMbq2')]
     .forEach(input => input.addEventListener('input', () => { updateHalflifeHint(); calculate(); }));
 
