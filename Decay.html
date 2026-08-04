@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F-18 Zerfallssimulation</title>
+    
+    <!-- Chart.js über CDN laden -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            padding: 2rem;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        p.subtitle {
+            color: #7f8c8d;
+            margin-bottom: 2rem;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        input {
+            padding: 0.75rem;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            align-self: flex-end;
+            height: 45px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>F-18 Zerfallssimulator</h1>
+        <p class="subtitle">Simulation des radioaktiven Zerfalls von Fluor-18 zu Sauerstoff-18 (Halbwertszeit: ~109,77 Minuten).</p>
+
+        <div class="controls">
+            <div class="input-group">
+                <label for="startActivity">Startaktivität (in MBq)</label>
+                <input type="number" id="startActivity" value="1000" min="1" step="10">
+            </div>
+            
+            <div class="input-group">
+                <label for="durationHours">Simulationsdauer (in Stunden)</label>
+                <input type="number" id="durationHours" value="12" min="1" max="72" step="1">
+            </div>
+
+            <button onclick="runSimulation()">Simulieren</button>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="decayChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let decayChart = null;
+        
+        // Physikalische Konstante
+        const HALBWERTSZEIT_MINUTEN = 109.77; 
+
+        function calculateDecay(n0, t_minutes) {
+            // N(t) = N0 * (1/2)^(t / T_1/2)
+            return n0 * Math.pow(0.5, t_minutes / HALBWERTSZEIT_MINUTEN);
+        }
+
+        function runSimulation() {
+            const startActivity = parseFloat(document.getElementById('startActivity').value);
+            const durationHours = parseFloat(document.getElementById('durationHours').value);
+            
+            if (isNaN(startActivity) || isNaN(durationHours) || startActivity <= 0 || durationHours <= 0) {
+                alert("Bitte gültige positive Zahlen eingeben.");
+                return;
+            }
+
+            const durationMinutes = durationHours * 60;
+            const stepSize = Math.max(1, Math.floor(durationMinutes / 60)); // Ein Datenpunkt pro berechnetem Schritt (ca. 60 Punkte gesamt)
+
+            const labels = [];
+            const f18Data = [];
+            const o18Data = [];
+
+            // Datenpunkte generieren
+            for (let t = 0; t <= durationMinutes; t += stepSize) {
+                const hours = (t / 60).toFixed(1);
+                labels.push(`${hours} h`);
+                
+                const remainingF18 = calculateDecay(startActivity, t);
+                const producedO18 = startActivity - remainingF18; // Erhaltung der Atomanzahl (vereinfacht dargestellt über Aktivitätsäquivalent)
+
+                f18Data.push(remainingF18.toFixed(2));
+                o18Data.push(producedO18.toFixed(2));
+            }
+
+            updateChart(labels, f18Data, o18Data);
+        }
+
+        function updateChart(labels, f18Data, o18Data) {
+            const ctx = document.getElementById('decayChart').getContext('2d');
+
+            // Altes Chart zerstören, falls vorhanden, um Überlappungen zu vermeiden
+            if (decayChart) {
+                decayChart.destroy();
+            }
+
+            decayChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Verbleibendes Fluor-18 (MBq)',
+                            data: f18Data,
+                            borderColor: 'rgba(220, 53, 69, 1)', // Rot
+                            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Entstandenes Sauerstoff-18 (Äquivalent)',
+                            data: o18Data,
+                            borderColor: 'rgba(40, 167, 69, 1)', // Grün
+                            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y + ' MBq';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Vergangene Zeit (Stunden)'
+                            },
+                            ticks: {
+                                maxTicksLimit: 12
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Aktivität / Menge'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initiale Simulation beim Laden der Seite starten
+        window.onload = runSimulation;
+    </script>
+</body>
+</html>
