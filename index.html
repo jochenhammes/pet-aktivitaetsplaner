@@ -222,6 +222,7 @@
   }
 
   .stat-value.hot{ color:var(--accent-hot-bright); }
+  .stat-value.alert{ color:#FF4D4D; font-weight:800; }
 
   .stats-note{
     margin-top:16px;
@@ -253,6 +254,23 @@
   }
 
   .table-panel{ margin-top:20px; }
+
+  .forecast-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0 24px;
+  }
+  .forecast-grid table{ width:100%; }
+  .forecast-grid tr.current-row td{
+    background:var(--accent-cool);
+    color:#fff;
+    font-weight:600;
+  }
+  .forecast-grid tr.current-row td.col-left{ color:#fff; }
+
+  @media (max-width: 640px){
+    .forecast-grid{ grid-template-columns:1fr; }
+  }
 
   .table-scroll{ overflow-x:auto; }
 
@@ -455,6 +473,14 @@
     </div>
   </section>
 
+  <section class="panel table-panel" aria-label="Prognose nach Patientenzahl">
+    <h2>Prognose nach Patientenzahl (1–40)</h2>
+    <p class="hint" id="forecastHint" style="margin-bottom:14px;"></p>
+    <div class="table-scroll">
+      <div class="forecast-grid" id="forecastGrid"></div>
+    </div>
+  </section>
+
   <p class="disclaimer">
     Hinweis: Die Rechnung geht von exakter Einhaltung des Zeitplans aus. Nach dem jeweils letzten durch eine Lieferung versorgten Patienten verbleibt genau der eingestellte Sicherheitspuffer – bei 0 MBq Puffer entspricht das der knappsten Kalkulation ohne Reserve. Die tatsächlich applizierte Aktivität ist unmittelbar vor Injektion zu messen und zu dokumentieren; diese App ersetzt keine Aktivitätsmessung. Halbwertszeiten sind gerundete Referenzwerte – bei Bedarf „Benutzerdefiniert" mit eigenem Wert verwenden.
   </p>
@@ -503,6 +529,7 @@
 
   const mbqFmt = new Intl.NumberFormat('de-DE', { minimumFractionDigits:1, maximumFractionDigits:1 });
   const eurFmt = new Intl.NumberFormat('de-DE', { style:'currency', currency:'EUR' });
+  const AVG_COST_ALERT_THRESHOLD = 255; // € — nur bei F-18 relevant
 
   function getHalflifeMinutes(){
     const sel = nuclideSelect.value;
@@ -658,8 +685,65 @@
     `;
   }
 
-  function statTile(label, value, hot){
-    return `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value${hot?' hot':''}">${value}</span></div>`;
+  function statTile(label, value, hot, alert){
+    const cls = [hot ? 'hot' : '', alert ? 'alert' : ''].filter(Boolean).join(' ');
+    return `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value${cls ? ' '+cls : ''}">${value}</span></div>`;
+  }
+
+  // Rechnet dieselbe Liefer-/Kostenlogik wie calculate() für eine gegebene Patientenzahl N
+  // durch, liefert aber nur die Summenwerte zurück (für die Prognosetabelle).
+  function computeProgramSummary(N, ctx){
+    const { calMinutes, leadTime, interval, dose, safetyBuffer, lambda,
+            costPerMbq1, deliveryFee, twoDeliveries, maxFirstDelivery,
+            secondDeliveryAbsolute, costPerMbq2 } = ctx;
+    const times = [];
+    for (let i = 0; i < N; i++) times.push(calMinutes + leadTime + i*interval);
+
+    if (!twoDeliveries){
+      const batch = computeBatch(calMinutes, times, dose, lambda, safetyBuffer);
+      const totalCost = batch.total*costPerMbq1 + deliveryFee;
+      return { totalActivity: batch.total, totalCost, avgCost: totalCost/N, hasGap:false };
+    }
+
+    const secondDeliveryReady = secondDeliveryAbsolute + leadTime;
+    let timeLimitIndex = times.findIndex(t => t >= secondDeliveryReady);
+    if (timeLimitIndex === -1) timeLimitIndex = N;
+    const capacityLimitIndex = findCapacitySplit(times, calMinutes, timeLimitIndex, dose, lambda, maxFirstDelivery, safetyBuffer);
+    const gapCount = timeLimitIndex - capacityLimitIndex;
+    const batch1Times = times.slice(0, capacityLimitIndex);
+    const batch2Times = times.slice(timeLimitIndex);
+    const batch1 = computeBatch(calMinutes, batch1Times, dose, lambda, safetyBuffer);
+    const batch2 = computeBatch(secondDeliveryAbsolute, batch2Times, dose, lambda, safetyBuffer);
+    const secondDeliveryUsed = batch2Times.length > 0;
+    const totalActivity = batch1.total + batch2.total;
+    const totalCost = batch1.total*costPerMbq1 + batch2.total*costPerMbq2 + deliveryFee*(secondDeliveryUsed ? 2 : 1);
+    return { totalActivity, totalCost, avgCost: totalCost/N, hasGap: gapCount > 0 };
+  }
+
+  function buildForecastTable(ctx){
+    const rows = [];
+    for (let n = 1; n <= 40; n++) rows.push({ n, ...computeProgramSummary(n, ctx) });
+
+    const renderTable = (subset) => `
+      <table>
+        <thead>
+          <tr><th class="col-left">Pat.</th><th>Gesamtaktivität (MBq)</th><th>Gesamtkosten (€)</th><th>Ø Kosten/Pat. (€)</th></tr>
+        </thead>
+        <tbody>
+          ${subset.map(r => `
+            <tr class="${r.n === ctx.currentN ? 'current-row' : ''}">
+              <td class="col-left">${r.n}${r.hasGap ? ' <span title="Versorgungslücke bei dieser Patientenzahl" style="color:#FF4D4D">⚠</span>' : ''}</td>
+              <td>${mbqFmt.format(r.totalActivity)}</td>
+              <td>${eurFmt.format(r.totalCost)}</td>
+              <td>${eurFmt.format(r.avgCost)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    el('forecastGrid').innerHTML = renderTable(rows.slice(0,20)) + renderTable(rows.slice(20,40));
+    el('forecastHint').innerHTML = `Alle übrigen Einstellungen bleiben unverändert; nur die Patientenzahl wird durchgerechnet. Aktuell eingestellte Patientenzahl (${ctx.currentN}) ist hervorgehoben${ctx.currentN > 40 ? ' (außerhalb des 1–40-Bereichs, daher hier nicht sichtbar)' : ''}.${ctx.twoDeliveries ? ' Gesamtaktivität ist die Summe beider Lieferungen, jeweils bezogen auf ihren eigenen Kalibrierzeitpunkt. „⚠" markiert Patientenzahlen mit Versorgungslücke.' : ''}`;
   }
 
   function calculate(){
@@ -702,6 +786,8 @@
       el('statsGrid').innerHTML = '';
       el('statsNote').innerHTML = '';
       el('decayChart').innerHTML = '';
+      el('forecastGrid').innerHTML = '';
+      el('forecastHint').innerHTML = '';
       return;
     }
 
@@ -716,23 +802,25 @@
     let statsHtml = '';
     let noteHtml = '';
     let batchesForChart;
+    let secondDeliveryAbsolute; // wird im Zwei-Lieferungs-Zweig gesetzt, für die Prognose gebraucht
 
     if (!twoDeliveries){
       const batch = computeBatch(calMinutes, times, dose, lambda, safetyBuffer);
       const totalCost = batch.total*costPerMbq1 + deliveryFee;
       const avgCost = totalCost / N;
+      const avgCostAlert = nuclideSelect.value === 'F-18' && avgCost > AVG_COST_ALERT_THRESHOLD;
 
       statsHtml = [
         statTile('Gesamtaktivität bei Kalibrierung', `${mbqFmt.format(batch.total)} MBq`, true),
         statTile('Gesamtkosten (inkl. Lieferkosten)', eurFmt.format(totalCost)),
-        statTile('Ø Kosten / Patient', eurFmt.format(avgCost))
+        statTile('Ø Kosten / Patient', eurFmt.format(avgCost), false, avgCostAlert)
       ].join('');
 
       scheduleRows = times.map((t,i) => ({ idx:i, time:t, delivery:1, remBefore:batch.remBefore[i], remAfter:batch.remAfter[i] }));
       batchesForChart = [{ referenceTime: calMinutes, times, remBefore: batch.remBefore, remAfter: batch.remAfter, total: batch.total, lambda }];
 
     } else {
-      const secondDeliveryAbsolute = secondDeliveryTimeOfDay >= calMinutes ? secondDeliveryTimeOfDay : secondDeliveryTimeOfDay + 1440;
+      secondDeliveryAbsolute = secondDeliveryTimeOfDay >= calMinutes ? secondDeliveryTimeOfDay : secondDeliveryTimeOfDay + 1440;
       const secondDeliveryReady = secondDeliveryAbsolute + leadTime; // 2. Lieferung ist erst nach der Vorlaufzeit einsatzbereit
       let timeLimitIndex = times.findIndex(t => t >= secondDeliveryReady);
       if (timeLimitIndex === -1) timeLimitIndex = N;
@@ -774,6 +862,7 @@
       const fees = deliveryFee * (secondDeliveryUsed ? 2 : 1);
       const totalCost = cost1 + cost2 + fees;
       const avgCost = totalCost / N;
+      const avgCostAlert = nuclideSelect.value === 'F-18' && avgCost > AVG_COST_ALERT_THRESHOLD;
 
       const tiles = [
         statTile(`Lieferung 1 · Aktivität (${batch1Times.length} Pat.)`, `${mbqFmt.format(batch1.total)} MBq`, true)
@@ -782,7 +871,7 @@
         tiles.push(statTile(`Lieferung 2 · Aktivität (${batch2Times.length} Pat.)`, `${mbqFmt.format(batch2.total)} MBq`, true));
       }
       tiles.push(statTile('Gesamtkosten (inkl. Lieferkosten)', eurFmt.format(totalCost)));
-      tiles.push(statTile('Ø Kosten / Patient (beide Lieferungen)', eurFmt.format(avgCost)));
+      tiles.push(statTile('Ø Kosten / Patient (beide Lieferungen)', eurFmt.format(avgCost), false, avgCostAlert));
       statsHtml = tiles.join('');
 
       let noteLines = [];
@@ -842,6 +931,12 @@
     el('scheduleBody').innerHTML = rows.join('');
 
     buildDecayChart(batchesForChart);
+
+    buildForecastTable({
+      calMinutes, leadTime, interval, dose, safetyBuffer, lambda,
+      costPerMbq1, deliveryFee, twoDeliveries, maxFirstDelivery,
+      secondDeliveryAbsolute, costPerMbq2, currentN: N
+    });
   }
 
   secondDeliveryEnabled.addEventListener('change', () => {
