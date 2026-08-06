@@ -724,6 +724,12 @@
     const rows = [];
     for (let n = 1; n <= 40; n++) rows.push({ n, ...computeProgramSummary(n, ctx) });
 
+    // Günstigste Patientenzahl hervorheben; Versorgungslücken-Zeilen dabei außen vor lassen,
+    // da ihre Kosten nicht alle Patienten tatsächlich abdecken (es sei denn, alle Zeilen betroffen).
+    const candidates = rows.filter(r => !r.hasGap);
+    const pool = candidates.length ? candidates : rows;
+    const cheapestN = pool.reduce((best, r) => r.avgCost < best.avgCost ? r : best, pool[0]).n;
+
     const renderTable = (subset) => `
       <table>
         <thead>
@@ -731,7 +737,7 @@
         </thead>
         <tbody>
           ${subset.map(r => `
-            <tr class="${r.n === ctx.currentN ? 'current-row' : ''}">
+            <tr class="${r.n === cheapestN ? 'current-row' : ''}">
               <td class="col-left">${r.n}${r.hasGap ? ' <span title="Versorgungslücke bei dieser Patientenzahl" style="color:#FF4D4D">⚠</span>' : ''}</td>
               <td>${mbqFmt.format(r.totalActivity)}</td>
               <td>${eurFmt.format(r.totalCost)}</td>
@@ -743,7 +749,7 @@
     `;
 
     el('forecastGrid').innerHTML = renderTable(rows.slice(0,20)) + renderTable(rows.slice(20,40));
-    el('forecastHint').innerHTML = `Alle übrigen Einstellungen bleiben unverändert; nur die Patientenzahl wird durchgerechnet. Aktuell eingestellte Patientenzahl (${ctx.currentN}) ist hervorgehoben${ctx.currentN > 40 ? ' (außerhalb des 1–40-Bereichs, daher hier nicht sichtbar)' : ''}.${ctx.twoDeliveries ? ' Gesamtaktivität ist die Summe beider Lieferungen, jeweils bezogen auf ihren eigenen Kalibrierzeitpunkt. „⚠" markiert Patientenzahlen mit Versorgungslücke.' : ''}`;
+    el('forecastHint').innerHTML = `Alle übrigen Einstellungen bleiben unverändert; nur die Patientenzahl wird durchgerechnet. Die Patientenzahl mit den niedrigsten Durchschnittskosten (${cheapestN}) ist hervorgehoben.${ctx.twoDeliveries ? ' Gesamtaktivität ist die Summe beider Lieferungen, jeweils bezogen auf ihren eigenen Kalibrierzeitpunkt. „⚠" markiert Patientenzahlen mit Versorgungslücke; diese werden bei der Hervorhebung nicht berücksichtigt.' : ''}`;
   }
 
   function calculate(){
